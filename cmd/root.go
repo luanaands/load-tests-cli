@@ -52,7 +52,7 @@ func getLoads() (*entity.Report, error) {
 	return runLoad(http.DefaultClient, URL, TotalRequests, Concurrency)
 }
 
-type httpDoer interface {
+type httpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
@@ -61,7 +61,7 @@ type requestResult struct {
 	success bool
 }
 
-func runLoad(client httpDoer, targetURL string, totalRequests int64, concurrency int32) (*entity.Report, error) {
+func runLoad(client httpClient, targetURL string, totalRequests int64, concurrency int32) (*entity.Report, error) {
 	started := time.Now()
 	workers := int64(concurrency)
 	if workers > totalRequests {
@@ -112,7 +112,7 @@ func runLoad(client httpDoer, targetURL string, totalRequests int64, concurrency
 	return report, nil
 }
 
-func doRequest(client httpDoer, targetURL string) requestResult {
+func doRequest(client httpClient, targetURL string) requestResult {
 	request, err := http.NewRequest(http.MethodGet, targetURL, nil)
 	if err != nil {
 		return requestResult{}
@@ -148,4 +148,5 @@ func init() {
 	rootCmd.Flags().StringVarP(&URL, "url", "u", "", "URL do servidor a ser testado")
 	rootCmd.Flags().Int64VarP(&TotalRequests, "requests", "r", 1, "Número total de requisições a serem realizadas")
 	rootCmd.Flags().Int32VarP(&Concurrency, "concurrency", "c", 1, "Número de chamadas simultâneas")
+	rootCmd.MarkFlagRequired("url")
 }
