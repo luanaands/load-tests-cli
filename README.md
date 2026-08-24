@@ -18,11 +18,13 @@ Opções:
 
 | Flag | Atalho | Padrão | Descrição |
 | --- | --- | --- | --- |
-| `--url` | `-u` | vazio | URL do serviço testado |
+| `--url` | `-u` | obrigatório | URL do serviço testado |
 | `--requests` | `-r` | `1` | Total de requisições |
 | `--concurrency` | `-c` | `1` | Chamadas simultâneas |
 
 O relatório exibe o total de requisições, sucessos HTTP `200`, tempo de execução e outros status ou erros.
+
+> A opção `--url` é obrigatória.
 
 ## Build
 
