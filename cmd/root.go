@@ -1,11 +1,12 @@
 package cmd
 
 import (
-	"encoding/json"
+	"fmt"
 	"io"
 	"load-tests-cli/internal/entity"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -26,10 +27,25 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 
-		encoder := json.NewEncoder(cmd.OutOrStdout())
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(report)
+		printReport(cmd.OutOrStdout(), report)
+		return nil
 	},
+}
+
+func printReport(output io.Writer, report *entity.Report) {
+	fmt.Fprintf(output, "Total requests: %d\n", report.TotalRequests)
+	fmt.Fprintf(output, "Successful requests (HTTP 200): %d\n", report.SuccessRequests)
+	fmt.Fprintf(output, "Total execution time: %.6f seconds\n", report.FinalTime)
+	fmt.Fprintln(output, "Other status codes:")
+
+	nstatus := make([]string, 0, len(report.OtherStatus))
+	for status := range report.OtherStatus {
+		nstatus = append(nstatus, status)
+	}
+	sort.Strings(nstatus)
+	for _, status := range nstatus {
+		fmt.Fprintf(output, "  %s: %d\n", status, report.OtherStatus[status])
+	}
 }
 
 func getLoads() (*entity.Report, error) {
@@ -78,7 +94,7 @@ func runLoad(client httpDoer, targetURL string, totalRequests int64, concurrency
 
 	report := &entity.Report{
 		TotalRequests: totalRequests,
-		OrderStatus:   make(map[string]int),
+		OtherStatus:   make(map[string]int),
 	}
 	for result := range results {
 		if result.success {
@@ -90,7 +106,7 @@ func runLoad(client httpDoer, targetURL string, totalRequests int64, concurrency
 		if result.status != 0 {
 			status = strconv.Itoa(result.status)
 		}
-		report.OrderStatus[status]++
+		report.OtherStatus[status]++
 	}
 	report.FinalTime = time.Since(started).Seconds()
 	return report, nil

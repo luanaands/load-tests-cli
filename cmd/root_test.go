@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
+	"load-tests-cli/internal/entity"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
@@ -65,12 +68,12 @@ func TestRunLoadAggregatesRequestsAndLimitsConcurrency(t *testing.T) {
 		t.Errorf("successful requests = %d; want 2", report.SuccessRequests)
 	}
 	for _, status := range []string{"404", "500"} {
-		if got := report.OrderStatus[status]; got != total/3 {
+		if got := report.OtherStatus[status]; got != total/3 {
 			t.Errorf("status %s count = %d; want %d", status, got, total/3)
 		}
 	}
-	if _, exists := report.OrderStatus["200"]; exists {
-		t.Error("success status 200 should not be included in order_status")
+	if _, exists := report.OtherStatus["200"]; exists {
+		t.Error("success status 200 should not be included in other_status")
 	}
 }
 
@@ -86,7 +89,7 @@ func TestRunLoadRecordsRequestErrors(t *testing.T) {
 		t.Fatalf("runLoad returned an error: %v", err)
 	}
 
-	if got := report.OrderStatus["error"]; got != 3 {
+	if got := report.OtherStatus["error"]; got != 3 {
 		t.Errorf("error count = %d; want 3", got)
 	}
 	if report.SuccessRequests != 0 {
@@ -103,5 +106,35 @@ func TestDoRequestReturnsHTTPStatusNumber(t *testing.T) {
 	result := doRequest(server.Client(), server.URL)
 	if result.status != http.StatusServiceUnavailable {
 		t.Errorf("status = %d; want %d", result.status, http.StatusServiceUnavailable)
+	}
+}
+
+func TestPrintReportUsesTextOutput(t *testing.T) {
+	var output bytes.Buffer
+	printReport(&output, &entity.Report{
+		TotalRequests:   3,
+		SuccessRequests: 1,
+		FinalTime:       0.25,
+		OtherStatus:     map[string]int{"503": 1, "404": 1},
+	})
+
+	got := output.String()
+	if strings.Contains(got, "{") || strings.Contains(got, "\"total_requests\"") {
+		t.Fatalf("report should not be JSON: %q", got)
+	}
+	if !strings.Contains(got, "Successful requests (HTTP 200): 1") {
+		t.Errorf("report does not contain success count: %q", got)
+	}
+	if !strings.Contains(got, "503: 1") {
+		t.Errorf("report does not contain status count: %q", got)
+	}
+}
+
+func TestPrintReportShowsEmptyStatusSection(t *testing.T) {
+	var output bytes.Buffer
+	printReport(&output, &entity.Report{})
+
+	if !strings.Contains(output.String(), "Other status codes:") {
+		t.Error("report should show the status section when it is empty")
 	}
 }
